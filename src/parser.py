@@ -37,7 +37,7 @@ def parse_pdf(file_path: str):
     Parses a PDF file page by page, using Gemini Multimodal to extract text and image descriptions.
     Returns a list of dictionaries with 'page' (1-indexed) and 'text' content.
     """
-    llm = ChatGoogleGenerativeAI(model="gemini-3.5-flash", temperature=0)
+    llm = ChatGoogleGenerativeAI(model="gemini-3.5-flash-lite", temperature=0)
     
     doc = fitz.open(file_path)
     parsed_pages = []
@@ -58,9 +58,17 @@ def parse_pdf(file_path: str):
         
         response = invoke_llm_with_retry(llm, message)
         
+        # Handle cases where response.content is a list of blocks
+        content = response.content
+        if isinstance(content, list):
+            text_blocks = [block.get("text", "") for block in content if isinstance(block, dict) and block.get("type") == "text"]
+            extracted_text = "\n".join(text_blocks)
+        else:
+            extracted_text = str(content)
+            
         parsed_pages.append({
             "page": page_num + 1,
-            "text": response.content
+            "text": extracted_text
         })
         
     return parsed_pages
