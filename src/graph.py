@@ -133,7 +133,7 @@ def fallback(state: GraphState):
     Fallback answer when documents are irrelevant.
     """
     print("---FALLBACK---")
-    return {"generation": "Saya tidak tahu, informasi tidak ditemukan di basis pengetahuan."}
+    return {"generation": "Mohon maaf saya tidak tahu, informasi tidak ditemukan di basis pengetahuan."}
 
 def decide_to_generate(state: GraphState):
     """
