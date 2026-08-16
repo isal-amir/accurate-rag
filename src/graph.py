@@ -27,6 +27,7 @@ class GraphState(TypedDict):
     documents: List[Any]
     generation: str
     is_relevant: bool
+    rewrite_count: int
 
 def retrieve(state: GraphState):
     """
@@ -101,6 +102,32 @@ def generate(state: GraphState):
     
     return {"generation": response.content}
 
+def rewrite(state: GraphState):
+    """
+    Rewrite the question to produce a better search query.
+    """
+    print("---REWRITE---")
+    question = state["question"]
+    rewrite_count = state.get("rewrite_count", 0)
+    
+    llm = get_llm()
+    
+    msg = [
+        SystemMessage(
+            content="Anda adalah ahli pembuat query pencarian. Misi Anda adalah merumuskan ulang pertanyaan pengguna "
+                    "agar lebih optimal untuk pencarian di database vektor (semantic search). "
+                    "Fokus pada kata kunci utama dan hindari kata-kata yang tidak perlu. "
+                    "Berikan hanya query hasil rumusan ulang Anda tanpa teks tambahan."
+        ),
+        HumanMessage(content=f"Pertanyaan awal: {question}")
+    ]
+    
+    response = llm.invoke(msg)
+    better_question = response.content.strip()
+    print(f"---REWRITTEN QUERY: {better_question}---")
+    
+    return {"question": better_question, "rewrite_count": rewrite_count + 1}
+
 def fallback(state: GraphState):
     """
     Fallback answer when documents are irrelevant.
@@ -110,11 +137,15 @@ def fallback(state: GraphState):
 
 def decide_to_generate(state: GraphState):
     """
-    Determines whether to generate an answer or use fallback.
+    Determines whether to generate an answer, rewrite, or use fallback.
     """
-    is_relevant = state["is_relevant"]
+    is_relevant = state.get("is_relevant", False)
+    rewrite_count = state.get("rewrite_count", 0)
+    
     if is_relevant:
         return "generate"
+    elif rewrite_count < 1:
+        return "rewrite"
     else:
         return "fallback"
 
@@ -125,6 +156,7 @@ workflow.add_node("retrieve", retrieve)
 workflow.add_node("evaluate", evaluate)
 workflow.add_node("generate", generate)
 workflow.add_node("fallback", fallback)
+workflow.add_node("rewrite", rewrite)
 
 workflow.add_edge(START, "retrieve")
 workflow.add_edge("retrieve", "evaluate")
@@ -133,9 +165,11 @@ workflow.add_conditional_edges(
     decide_to_generate,
     {
         "generate": "generate",
+        "rewrite": "rewrite",
         "fallback": "fallback"
     }
 )
+workflow.add_edge("rewrite", "retrieve")
 workflow.add_edge("generate", END)
 workflow.add_edge("fallback", END)
 

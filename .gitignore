@@ -1,6 +1,9 @@
 # soal
 Take-Home Test - Junior AI Engineer 2026.pdf
-promt.txt
 
 # credentials
 .env
+
+# qdrant
+qdrant_data
+__pycache__
