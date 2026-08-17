@@ -1,0 +1,6 @@
+Terdapat beberapa kelemahan yang merupakan trade-off dengan kelebihannya:
+
+1. Metode parsing halaman secara penuh menggunakan multimodal llm gemini (vision) yang mana boros token namun akurat dalam mengambil informasi.
+2. Metode chunking dilakukan dengan cara recursive per 1000 token dalam satu halaman dengan overlap 200. Dibuat singkat agar llm lebih fokus dan minim noise informasi. Hal ini memunculkan kelemahan ketika halaman memuat tabel panjang (multi-page) maka akan terpotong.
+3. Parsing dan chunking per halaman juga memnberikan kelebihan yaitu kemudahan dalam mengembalikan referensi halaman sumber jawaban sehingga user lebih mudah cross-check.
+
