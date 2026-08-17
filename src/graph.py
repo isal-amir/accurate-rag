@@ -87,10 +87,10 @@ def generate(state: GraphState):
         
     system_prompt = (
         "Anda adalah asisten AI untuk customer support software akuntansi online.\n"
-        "Gunakan konteks berikut untuk menjawab pertanyaan pengguna.\n"
+        "Gunakan konteks dokumen dan ringkasan percakapan sebelumnya (jika ada) untuk menjawab pertanyaan pengguna.\n"
         "Jawaban harus dalam bahasa Indonesia.\n"
         "Sertakan sumber halaman (misal: 'Berdasarkan Halaman 2, ...') di dalam jawaban Anda.\n\n"
-        f"Konteks:\n{context}"
+        f"Konteks Dokumen:\n{context}"
     )
     
     messages = [SystemMessage(content=system_prompt)]

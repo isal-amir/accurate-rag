@@ -8,7 +8,8 @@ import streamlit as st
 import time
 import os
 import tempfile
-from langchain_core.messages import HumanMessage, AIMessage
+from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
+from langchain_google_genai import ChatGoogleGenerativeAI
 from src.parser import parse_pdf
 from src.vectorstore import ingest_parsed_pages
 from src.graph import rag_app
@@ -45,6 +46,10 @@ with st.sidebar:
 # Initialize Chat History
 if "messages" not in st.session_state:
     st.session_state.messages = []
+if "summary" not in st.session_state:
+    st.session_state.summary = ""
+if "summarized_count" not in st.session_state:
+    st.session_state.summarized_count = 0
 
 # Display Chat History
 for message in st.session_state.messages:
@@ -58,23 +63,45 @@ if prompt := st.chat_input("Tanyakan sesuatu tentang Accurate..."):
     with st.chat_message("user"):
         st.markdown(prompt)
 
-    # Convert session history to Langchain format
-    # Only keep the last 5 messages (excluding current one) to maintain context
-    history = []
-    # session_state.messages contains dicts like {"role": "...", "content": "..."}
-    # We take at most 5 messages (if more, slice from the end)
-    messages_to_keep = st.session_state.messages[-6:-1] if len(st.session_state.messages) > 1 else []
-    
-    for msg in messages_to_keep:
-        if msg["role"] == "user":
-            history.append(HumanMessage(content=msg["content"]))
-        else:
-            history.append(AIMessage(content=msg["content"]))
-
     with st.chat_message("assistant"):
         with st.spinner("Mencari jawaban..."):
             start_time = time.time()
             
+            # --- MEMORY MANAGEMENT ---
+            unsummarized_count = len(st.session_state.messages) - st.session_state.summarized_count
+            
+            # If > 10 unsummarized messages (5 turns), summarize the oldest 6 (3 turns)
+            # This leaves 4 unsummarized messages (2 turns) prior to the new user prompt
+            if unsummarized_count > 10:
+                messages_to_summarize = st.session_state.messages[st.session_state.summarized_count : st.session_state.summarized_count + 6]
+                
+                summary_prompt = "Ringkas percakapan berikut ini menjadi satu paragraf padat. Fokus pada informasi penting dan konteks.\n\n"
+                if st.session_state.summary:
+                    summary_prompt += f"Ringkasan sebelumnya:\n{st.session_state.summary}\n\n"
+                summary_prompt += "Percakapan baru:\n"
+                for msg in messages_to_summarize:
+                    role = "User" if msg["role"] == "user" else "AI"
+                    summary_prompt += f"{role}: {msg['content']}\n"
+                    
+                summarizer_llm = ChatGoogleGenerativeAI(model="gemini-3.5-flash-lite", temperature=0)
+                summary_response = summarizer_llm.invoke([HumanMessage(content=summary_prompt)])
+                st.session_state.summary = summary_response.content
+                
+                st.session_state.summarized_count += 6
+            
+            # Build history
+            history = []
+            if st.session_state.summary:
+                history.append(SystemMessage(content=f"Ringkasan percakapan sebelumnya:\n{st.session_state.summary}"))
+                
+            # Exclude the current user prompt (which is the last message)
+            unsummarized_msgs = st.session_state.messages[st.session_state.summarized_count : -1]
+            for msg in unsummarized_msgs:
+                if msg["role"] == "user":
+                    history.append(HumanMessage(content=msg["content"]))
+                else:
+                    history.append(AIMessage(content=msg["content"]))
+
             inputs = {
                 "question": prompt,
                 "chat_history": history
