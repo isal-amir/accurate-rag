@@ -58,6 +58,17 @@ def ingest_parsed_pages(parsed_pages):
         vs.add_documents(documents)
 
     if docs:
-        add_docs_with_retry(vector_store, docs)
+        import time
+        import streamlit as st
+        
+        batch_size = 50
+        for i in range(0, len(docs), batch_size):
+            batch = docs[i:i + batch_size]
+            add_docs_with_retry(vector_store, batch)
+            
+            # Sleep if there are more batches to process
+            if i + batch_size < len(docs):
+                st.toast(f"Ingested batch {i//batch_size + 1}... pausing to respect API limits.")
+                time.sleep(10)
         
     return len(docs)
