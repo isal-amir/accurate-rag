@@ -4,7 +4,9 @@
 pip install -r requirements.txt
 ```
 
-2. Start the Qdrant server:
+2. Create .env file covering all what in .env.example
+
+3. Start the Qdrant server:
 
 ```
 docker-compose up -d
